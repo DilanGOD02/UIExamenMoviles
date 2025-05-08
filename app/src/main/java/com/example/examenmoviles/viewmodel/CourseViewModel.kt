@@ -15,6 +15,7 @@ import java.io.File
 import java.io.FileOutputStream
 import androidx.lifecycle.viewModelScope
 import com.example.examenmoviles.network.RetrofitInstance
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody
@@ -27,6 +28,17 @@ class CourseViewModel : ViewModel() {
     private val apiService = RetrofitClient.apiService
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses
+
+
+    // For UI feedback
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
     fun fetchEvents() {
         viewModelScope.launch {
@@ -86,4 +98,74 @@ class CourseViewModel : ViewModel() {
             }
         }
     }
-}
+
+
+    fun deleteCourse(courseId: Int) {
+        viewModelScope.launch {
+            try {
+                RetrofitInstance.api.deleteCourse(courseId)
+                _courses.value = _courses.value.filter { it.id != courseId }
+                Log.i("ViewModelInfo", "Course delete")
+                Log.i("ViewModelInfo", "Course deleted successfully")
+            } catch (e: HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                _errorMessage.value = "Error al eliminar curso: ${e.message()}"
+                Log.e("ViewModelError", "HTTP Error: ${e.message()}, Body: $errorBody")
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al eliminar curso: ${e.message}"
+                Log.e("ViewModelError", "Error: ${e.message}", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+        }
+
+    fun clearMessages() {
+        _errorMessage.value = null
+        _successMessage.value = null
+    }
+    fun updateCourse(courseId: Int, course: Course, imageFile: File?) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val filePart = imageFile?.let { file ->
+                    val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+                    MultipartBody.Part.createFormData(
+                        name = "file",
+                        filename = file.name,
+                        body = requestFile
+                    )
+                }
+
+                val courseData = mapOf(
+                    "name" to course.name.toRequestBody("text/plain".toMediaType()),
+                    "description" to course.description.toRequestBody("text/plain".toMediaType()),
+                    "professor" to course.professor.toRequestBody("text/plain".toMediaType()),
+                    "schedule" to course.schedule.toRequestBody("text/plain".toMediaType())
+                )
+
+                val response = if (filePart != null) {
+                    RetrofitInstance.api.updateCourseWithImage(courseId, filePart, courseData)
+                } else {
+                    RetrofitInstance.api.updateCourse(courseId, courseData)
+                }
+
+                _courses.value = _courses.value.map {
+                    if (it.id == courseId) response else it
+                }
+                _successMessage.value = "Curso actualizado exitosamente"
+                Log.i("ViewModelInfo", "Course updated: $response")
+            } catch (e: HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                _errorMessage.value = "Error al actualizar curso: ${e.message()}"
+                Log.e("ViewModelError", "HTTP Error: ${e.message()}, Body: $errorBody")
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al actualizar curso: ${e.message}"
+                Log.e("ViewModelError", "Error: ${e.message}", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    }

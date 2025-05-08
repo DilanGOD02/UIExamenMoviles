@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Person
@@ -48,6 +50,7 @@ import com.example.examenmoviles.viewmodel.CourseViewModel
 import com.moviles.taskmind.common.Constants
 import java.io.File
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoursePage(
@@ -56,6 +59,7 @@ fun CoursePage(
 ) {
     val courses by courseViewModel.course.collectAsState()
     var showForm by remember { mutableStateOf(false) }
+    var currentCourseToEdit by remember { mutableStateOf<Course?>(null) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -77,11 +81,11 @@ fun CoursePage(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showForm = !showForm }) {
-                Icon(
-                    imageVector = if (showForm) Icons.Rounded.Close else Icons.Rounded.Add,
-                    contentDescription = if (showForm) "Close form" else "Add course"
-                )
+            FloatingActionButton(onClick = {
+                showForm = true
+                currentCourseToEdit = null
+            }) {
+                Icon(Icons.Rounded.Add, contentDescription = "Add course")
             }
         }
     ) { paddingValues ->
@@ -93,16 +97,36 @@ fun CoursePage(
         ) {
             if (showForm) {
                 AddCourseForm(
+                    courseToEdit = currentCourseToEdit,
                     onSubmit = { course, imageUri ->
                         if (imageUri != null) {
                             val imageFile = uriToFile(imageUri, context)
-                            courseViewModel.addCourse(course, imageFile)
-                            showForm = false
+                            if (currentCourseToEdit == null) {
+                                // Add new course
+                                courseViewModel.addCourse(course, imageFile)
+                            } else {
+                                // Update existing course
+                                courseViewModel.updateCourse(
+                                    currentCourseToEdit!!.id ?: 0,
+                                    course,
+                                    imageFile
+                                )
+                            }
+                        } else if (currentCourseToEdit != null && currentCourseToEdit?.imageUrl != null) {
+                            // Editing but no new image selected - keep existing image
+                            courseViewModel.updateCourse(
+                                currentCourseToEdit!!.id ?: 0,
+                                course,
+                                null
+                            )
                         } else {
                             Toast.makeText(context, "Se requiere una imagen", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onDismiss = { showForm = false }
+                    onDismiss = {
+                        showForm = false
+                        currentCourseToEdit = null
+                    }
                 )
             } else {
                 if (courses.isEmpty()) {
@@ -121,11 +145,14 @@ fun CoursePage(
                     ) {
                         items(courses) { course ->
                             CourseCard(
-                                name = course.name,
-                                description = course.description,
-                                imageUrl = course.imageUrl ?: "",
-                                professor = course.professor,
-                                schedule = course.schedule
+                                course = course,
+                                onEditClick = {
+                                    currentCourseToEdit = course
+                                    showForm = true
+                                },
+                                onDeleteClick = {
+                                    courseViewModel.deleteCourse(course.id ?: 0)
+                                }
                             )
                         }
                     }
@@ -135,11 +162,14 @@ fun CoursePage(
     }
 }
 
-
 @Composable
-fun CourseCard(name: String, description: String, imageUrl: String, professor: String, schedule: String) {
+fun CourseCard(
+    course: Course,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     val context = LocalContext.current
-    val fullImageUrl = Constants.IMAGES_BASE_URL + imageUrl
+    val fullImageUrl = Constants.IMAGES_BASE_URL + (course.imageUrl ?: "")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -160,7 +190,7 @@ fun CourseCard(name: String, description: String, imageUrl: String, professor: S
                         .data(fullImageUrl)
                         .crossfade(true)
                         .build(),
-                    contentDescription = "Imagen del curso $name",
+                    contentDescription = "Imagen del curso ${course.name}",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -173,7 +203,7 @@ fun CourseCard(name: String, description: String, imageUrl: String, professor: S
                     contentAlignment = Alignment.BottomStart
                 ) {
                     Text(
-                        text = name,
+                        text = course.name,
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
@@ -186,24 +216,57 @@ fun CourseCard(name: String, description: String, imageUrl: String, professor: S
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = course.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row {
+                        IconButton(
+                            onClick = onEditClick,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Editar curso",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
+                            onClick = onDeleteClick,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Eliminar curso",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = description,
+                    text = course.description,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Profesor: $professor",
+                    text = "Profesor: ${course.professor}",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Horario: $schedule",
+                    text = "Horario: ${course.schedule}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -214,14 +277,15 @@ fun CourseCard(name: String, description: String, imageUrl: String, professor: S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCourseForm(
+    courseToEdit: Course? = null,
     onSubmit: (Course, Uri?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var professor by remember { mutableStateOf("") }
-    var schedule by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(courseToEdit?.name ?: "") }
+    var description by remember { mutableStateOf(courseToEdit?.description ?: "") }
+    var professor by remember { mutableStateOf(courseToEdit?.professor ?: "") }
+    var schedule by remember { mutableStateOf(courseToEdit?.schedule ?: "") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
     val imagePicker = rememberLauncherForActivityResult(
@@ -249,7 +313,7 @@ fun AddCourseForm(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Agregar Curso",
+                        if (courseToEdit == null) "Agregar Curso" else "Editar Curso",
                         style = MaterialTheme.typography.headlineSmall
                     )
                     IconButton(onClick = onDismiss) {
@@ -302,14 +366,14 @@ fun AddCourseForm(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
                 ) {
-                    Text("Seleccionar imagen*")
+                    Text("Seleccionar imagen${if (courseToEdit == null) "*" else ""}")
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                imageUri?.let {
+                if (imageUri != null) {
                     AsyncImage(
-                        model = it,
+                        model = imageUri,
                         contentDescription = "Vista previa de la imagen",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -317,15 +381,35 @@ fun AddCourseForm(
                             .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
-                } ?: Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No hay imagen seleccionada", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (courseToEdit?.imageUrl != null) {
+                    AsyncImage(
+                        model = "${Constants.IMAGES_BASE_URL}${courseToEdit.imageUrl}",
+                        contentDescription = "Imagen actual del curso",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Text(
+                        text = "Imagen actual (selecciona una nueva para cambiarla)",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No hay imagen seleccionada",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -339,7 +423,8 @@ fun AddCourseForm(
                         onClick = {
                             if (name.isBlank() || description.isBlank() ||
                                 professor.isBlank() || schedule.isBlank() ||
-                                imageUri == null) {
+                                (courseToEdit == null && imageUri == null)
+                            ) {
                                 Toast.makeText(
                                     context,
                                     "Por favor complete todos los campos",
@@ -348,11 +433,12 @@ fun AddCourseForm(
                             } else {
                                 onSubmit(
                                     Course(
+                                        id = courseToEdit?.id,
                                         name = name,
                                         description = description,
                                         professor = professor,
                                         schedule = schedule,
-                                        imageUrl = null // Will be set by backend
+                                        imageUrl = courseToEdit?.imageUrl
                                     ),
                                     imageUri
                                 )
@@ -360,16 +446,15 @@ fun AddCourseForm(
                         },
                         enabled = name.isNotBlank() && description.isNotBlank() &&
                                 professor.isNotBlank() && schedule.isNotBlank() &&
-                                imageUri != null
+                                (imageUri != null || courseToEdit != null)
                     ) {
-                        Text("Guardar curso")
+                        Text(if (courseToEdit == null) "Guardar curso" else "Actualizar curso")
                     }
                 }
             }
         }
     }
 }
-
 // Helper function to convert URI to File
 fun uriToFile(uri: Uri, context: Context): File {
     val inputStream = context.contentResolver.openInputStream(uri)!!
