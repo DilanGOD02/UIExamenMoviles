@@ -10,6 +10,6 @@ interface ApiService {
 
 
     //Course
-    @GET("api/course")
+    @GET("api/courses")
     suspend fun getCourses(): List<Course>
 }
