@@ -3,11 +3,13 @@ package com.example.examenmoviles.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.examenmoviles.models.Course
 import com.example.examenmoviles.models.Student
 import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class StudentViewModel : ViewModel() {
 
@@ -24,4 +26,5 @@ class StudentViewModel : ViewModel() {
             }
         }
     }
+
 }
