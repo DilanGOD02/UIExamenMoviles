@@ -206,7 +206,12 @@ fun StudentListItem(
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = {
+                        student.id?.let {
+                            println("Student ID to delete: $it") // Imprimir ID en la consola
+                            onDelete()
+                        }
+                    }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 }

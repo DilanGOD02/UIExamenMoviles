@@ -4,7 +4,7 @@ import com.example.examenmoviles.models.Student
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-
+import retrofit2.Response
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -30,5 +30,5 @@ interface StudentApiService {
     ): Student
 
     @DELETE("api/students/{id}")
-    suspend fun deleteStudent(@Path("id") id: Int)
+    suspend fun deleteStudent(@Path("id") id: Int): Response<Unit>
 }

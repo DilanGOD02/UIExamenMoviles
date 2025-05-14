@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
+
 class StudentViewModel : ViewModel() {
     private val apiService = RetrofitClient.StudentapiService
     private val _students = MutableStateFlow<List<Student>>(emptyList())
@@ -105,22 +106,22 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                apiService.deleteStudent(studentId)
-                _students.value = _students.value.filter { it.id != studentId }
-                _successMessage.value = "Student deleted successfully"
-                Log.i("StudentViewModel", "Student deleted")
-            } catch (e: HttpException) {
-                val errorBody = e.response()?.errorBody()?.string()
-                _errorMessage.value = "Error deleting student: ${e.message()}, Body: $errorBody"
-                Log.e("StudentViewModel", "HTTP Error: ${e.message()}, Body: $errorBody")
+                val response = apiService.deleteStudent(studentId)
+                if (response.isSuccessful) {
+                    _successMessage.value = "Estudiante eliminado exitosamente."
+                    // Asegúrate de que currentCourseId esté definido
+                    fetchAllStudents()
+                } else {
+                    _errorMessage.value = "Error al eliminar el estudiante. Código: ${response.code()}"
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "Error deleting student: ${e.message}"
-                Log.e("StudentViewModel", "Error: ${e.message}", e)
+                _errorMessage.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
+
 
     fun clearMessages() {
         _errorMessage.value = null
