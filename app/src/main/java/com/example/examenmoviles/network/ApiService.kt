@@ -17,33 +17,4 @@ interface ApiService {
     @GET("api/student")
     suspend fun getStudents(): List<Student>
 
-
-
-    //Course
-    @GET("api/courses")
-    suspend fun getCourses(): List<Course>
-
-    @Multipart
-    @POST("api/courses")
-    suspend fun addCourse(
-        @Part file: MultipartBody.Part,
-        @PartMap courseData: Map<String, @JvmSuppressWildcards RequestBody>
-    ): Course
-
-    @Multipart
-    @PUT("api/courses/{id}")
-    suspend fun updateCourseWithImage(
-        @Path("id") id: Int,
-        @Part file: MultipartBody.Part,
-        @PartMap courseData: Map<String, @JvmSuppressWildcards RequestBody>
-    ): Course
-
-    @PUT("api/courses/{id}")
-    suspend fun updateCourse(
-        @Path("id") id: Int,
-        @PartMap courseData: Map<String, @JvmSuppressWildcards RequestBody>
-    ): Course
-
-    @DELETE("api/courses/{id}")
-    suspend fun deleteCourse(@Path("id") id: Int)
 }

@@ -7,5 +7,13 @@ data class Course(
     val imageUrl: String?,
     val schedule: String,
     val professor: String
+)
 
+data class CourseDto(
+    val id: Int? = null,
+    val name: String,
+    val description: String,
+    val imageUrl: String?,
+    val schedule: String,
+    val professor: String
 )

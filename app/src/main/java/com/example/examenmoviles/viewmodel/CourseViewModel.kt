@@ -25,7 +25,7 @@ import retrofit2.HttpException
 import kotlin.collections.plus
 
 class CourseViewModel : ViewModel() {
-    private val apiService = RetrofitClient.apiService
+    private val courseApi = RetrofitClient.courseApi
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses
 
@@ -43,7 +43,7 @@ class CourseViewModel : ViewModel() {
     fun fetchEvents() {
         viewModelScope.launch {
             try {
-                val response = apiService.getCourses()
+                val response = courseApi.getCourses()
                 Log.d("CourseViewModel", "Fetched ${response.size} courses") // <- Agregado
                 _courses.value = response
             } catch (e: Exception) {
@@ -81,7 +81,7 @@ class CourseViewModel : ViewModel() {
                 Log.i("ViewModelInfo", "Sending event with image: ${course.name}")
 
                 // 3. Llamar al backend
-                val response = RetrofitInstance.api.addCourse(filePart, eventData)
+                val response = RetrofitInstance.courseApi.addCourse(filePart, eventData)
 
                 // 4. Agregarlo a la lista observable
                 _courses.value += response
@@ -103,7 +103,7 @@ class CourseViewModel : ViewModel() {
     fun deleteCourse(courseId: Int) {
         viewModelScope.launch {
             try {
-                RetrofitInstance.api.deleteCourse(courseId)
+                RetrofitInstance.courseApi.deleteCourse(courseId)
                 _courses.value = _courses.value.filter { it.id != courseId }
                 Log.i("ViewModelInfo", "Course delete")
                 Log.i("ViewModelInfo", "Course deleted successfully")
@@ -145,9 +145,9 @@ class CourseViewModel : ViewModel() {
                 )
 
                 val response = if (filePart != null) {
-                    RetrofitInstance.api.updateCourseWithImage(courseId, filePart, courseData)
+                    RetrofitInstance.courseApi.updateCourseWithImage(courseId, filePart, courseData)
                 } else {
-                    RetrofitInstance.api.updateCourse(courseId, courseData)
+                    RetrofitInstance.courseApi.updateCourse(courseId, courseData)
                 }
 
                 _courses.value = _courses.value.map {
