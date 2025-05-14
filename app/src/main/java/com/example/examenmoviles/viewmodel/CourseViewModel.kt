@@ -25,7 +25,7 @@ import retrofit2.HttpException
 import kotlin.collections.plus
 
 class CourseViewModel : ViewModel() {
-    private val apiService = RetrofitClient.apiService
+    private val apiService = RetrofitClient.CourseapiService
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses
 
@@ -48,6 +48,26 @@ class CourseViewModel : ViewModel() {
                 _courses.value = response
             } catch (e: Exception) {
                 Log.e("CourseViewModel", "Error fetching courses", e)
+            }
+        }
+    }
+
+    fun getCourseById(courseId: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val course = apiService.getCourseById(courseId)
+                Log.i("ViewModelInfo", "Fetched course: $course")
+                // Aquí puedes hacer algo con el curso obtenido, como actualizar el estado o mostrarlo en la UI
+            } catch (e: HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                _errorMessage.value = "Error al obtener curso: ${e.message()}"
+                Log.e("ViewModelError", "HTTP Error: ${e.message()}, Body: $errorBody")
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al obtener curso: ${e.message}"
+                Log.e("ViewModelError", "Error: ${e.message}", e)
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -167,5 +187,7 @@ class CourseViewModel : ViewModel() {
             }
         }
     }
+
+
 
     }

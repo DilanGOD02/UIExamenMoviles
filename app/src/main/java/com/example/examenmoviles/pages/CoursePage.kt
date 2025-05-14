@@ -1,6 +1,7 @@
 package com.example.examenmoviles.pages
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +17,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,6 +51,7 @@ import com.example.examenmoviles.models.Course
 import com.example.examenmoviles.viewmodel.CourseViewModel
 import com.moviles.taskmind.common.Constants
 import java.io.File
+import kotlin.jvm.java
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +67,14 @@ fun CoursePage(
 
     LaunchedEffect(Unit) {
         courseViewModel.fetchEvents()
+    }
+
+    // Mover la función aquí
+    fun navigateToStudentPage(context: Context, courseId: Int) {
+        val intent = Intent(context, StudentPage::class.java).apply {
+            putExtra("COURSE_ID", courseId)
+        }
+        context.startActivity(intent)
     }
 
     Scaffold(
@@ -152,6 +163,10 @@ fun CoursePage(
                                 },
                                 onDeleteClick = {
                                     courseViewModel.deleteCourse(course.id ?: 0)
+                                },
+                                onClick = {
+                                    // Navegar a StudentPage y pasar el ID del curso
+                                    navigateToStudentPage(context, course.id ?: 0)
                                 }
                             )
                         }
@@ -162,17 +177,21 @@ fun CoursePage(
     }
 }
 
+
 @Composable
 fun CourseCard(
     course: Course,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onClick: () -> Unit // Nuevo parámetro para manejar el clic
 ) {
     val context = LocalContext.current
     val fullImageUrl = Constants.IMAGES_BASE_URL + (course.imageUrl ?: "")
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
+            .clickable(onClick = onClick),
+
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -464,3 +483,4 @@ fun uriToFile(uri: Uri, context: Context): File {
     }
     return file
 }
+

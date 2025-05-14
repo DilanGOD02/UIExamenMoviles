@@ -1,5 +1,6 @@
 package com.example.examenmoviles
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import com.example.examenmoviles.pages.CoursePage
+import com.example.examenmoviles.pages.StudentPage
 import com.example.examenmoviles.ui.theme.ExamenMovilesTheme
 
 class MainActivity : ComponentActivity() {
@@ -30,7 +33,15 @@ class MainActivity : ComponentActivity() {
                 var currentPage by remember { mutableStateOf("") }
 
                 when (currentPage) {
-                    "students" -> StudentPage(onBack = { currentPage = "" })
+                    "students" -> {
+                    // Navegar a la actividad StudentActivity
+                        val context = LocalContext.current
+                    LaunchedEffect(Unit) {
+                        val intent = Intent(context, StudentPage::class.java)
+                        context.startActivity(intent)
+                        currentPage = "" // Restablecer página actual
+                    }
+                }
                     "courses" -> CoursePage(onBack = { currentPage = "" })
                     else -> MainScreen(onNavigate = { selectedPage -> currentPage = selectedPage })
                 }

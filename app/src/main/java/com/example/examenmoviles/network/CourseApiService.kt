@@ -3,7 +3,6 @@ import com.example.examenmoviles.models.Course
 import com.example.examenmoviles.models.Student
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
-import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
@@ -13,7 +12,7 @@ import retrofit2.http.Part
 import retrofit2.http.PartMap
 import retrofit2.http.Path
 
-interface ApiService {
+interface CourseApiService {
     @GET("api/student")
     suspend fun getStudents(): List<Student>
 
@@ -22,6 +21,9 @@ interface ApiService {
     //Course
     @GET("api/courses")
     suspend fun getCourses(): List<Course>
+
+    @GET("api/courses/{id}")
+    suspend fun getCourseById(@Path("id") id: Int): Course
 
     @Multipart
     @POST("api/courses")
