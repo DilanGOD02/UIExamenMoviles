@@ -14,6 +14,7 @@ import okhttp3.MultipartBody
 import java.io.File
 import java.io.FileOutputStream
 import androidx.lifecycle.viewModelScope
+import com.example.examenmoviles.network.CourseApiService
 import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MediaType.Companion.toMediaType
@@ -43,7 +44,7 @@ class CourseViewModel : ViewModel() {
     fun fetchEvents() {
         viewModelScope.launch {
             try {
-                val response = courseApi.getCourses()
+                val response = apiService.getCourses()
                 Log.d("CourseViewModel", "Fetched ${response.size} courses") // <- Agregado
                 _courses.value = response
             } catch (e: Exception) {
