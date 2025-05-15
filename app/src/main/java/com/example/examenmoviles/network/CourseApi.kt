@@ -28,7 +28,7 @@ interface CourseApi {
     @Multipart
     @PUT("api/courses/{id}")
     suspend fun updateCourseWithImage(
-        @Path("id") id: Int,
+        @Path("id") id: Int?,
         @Part file: MultipartBody.Part,
         @PartMap courseData: Map<String, @JvmSuppressWildcards RequestBody>
     ): Course

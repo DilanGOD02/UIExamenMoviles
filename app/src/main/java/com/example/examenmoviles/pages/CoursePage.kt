@@ -69,7 +69,6 @@ fun CoursePage(
         courseViewModel.fetchEvents()
     }
 
-    // Mover la función aquí
     fun navigateToStudentPage(context: Context, courseId: Int) {
         val intent = Intent(context, StudentPage::class.java).apply {
             putExtra("COURSE_ID", courseId)
@@ -110,29 +109,30 @@ fun CoursePage(
                 AddCourseForm(
                     courseToEdit = currentCourseToEdit,
                     onSubmit = { course, imageUri ->
-                        if (imageUri != null) {
-                            val imageFile = uriToFile(imageUri, context)
-                            if (currentCourseToEdit == null) {
-                                // Add new course
+                        if (currentCourseToEdit != null) {
+                            // Update existing course
+                            if (imageUri != null) {
+                                val imageFile = uriToFile(imageUri, context)
+                                courseViewModel.updateCourse(course, imageFile)
+                            } else {
+                                // If no new image is selected, we need to handle this case
+                                // You might want to create a separate update method without image
+                                // or pass the existing image URL to the ViewModel
+                                Toast.makeText(context, "Se requiere una imagen para actualizar", Toast.LENGTH_SHORT).show()
+                                return@AddCourseForm
+                            }
+                        } else {
+                            // Add new course
+                            if (imageUri != null) {
+                                val imageFile = uriToFile(imageUri, context)
                                 courseViewModel.addCourse(course, imageFile)
                             } else {
-                                // Update existing course
-                                courseViewModel.updateCourse(
-                                    currentCourseToEdit!!.id ?: 0,
-                                    course,
-                                    imageFile
-                                )
+                                Toast.makeText(context, "Se requiere una imagen", Toast.LENGTH_SHORT).show()
+                                return@AddCourseForm
                             }
-                        } else if (currentCourseToEdit != null && currentCourseToEdit?.imageUrl != null) {
-                            // Editing but no new image selected - keep existing image
-                            courseViewModel.updateCourse(
-                                currentCourseToEdit!!.id ?: 0,
-                                course,
-                                null
-                            )
-                        } else {
-                            Toast.makeText(context, "Se requiere una imagen", Toast.LENGTH_SHORT).show()
                         }
+                        showForm = false
+                        currentCourseToEdit = null
                     },
                     onDismiss = {
                         showForm = false
@@ -165,7 +165,6 @@ fun CoursePage(
                                     courseViewModel.deleteCourse(course.id ?: 0)
                                 },
                                 onClick = {
-                                    // Navegar a StudentPage y pasar el ID del curso
                                     navigateToStudentPage(context, course.id ?: 0)
                                 }
                             )
@@ -387,6 +386,7 @@ fun AddCourseForm(
                 ) {
                     Text("Seleccionar imagen${if (courseToEdit == null) "*" else ""}")
                 }
+
 
                 Spacer(modifier = Modifier.height(12.dp))
 

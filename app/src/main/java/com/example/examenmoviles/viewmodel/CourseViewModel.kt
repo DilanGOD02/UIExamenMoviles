@@ -1,7 +1,5 @@
 package com.example.examenmoviles.viewmodel
 
-import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,9 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 import java.io.File
-import java.io.FileOutputStream
-import androidx.lifecycle.viewModelScope
-import com.example.examenmoviles.network.CourseApiService
 import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MediaType.Companion.toMediaType
@@ -91,18 +86,18 @@ class CourseViewModel : ViewModel() {
                     body = requestFile
                 )
 
-                // 2. Convertir los campos del evento en RequestBody
-                val eventData: Map<String, RequestBody> = mutableMapOf<String, RequestBody>().apply {
+                // 2. Convertir los campos del courseData en RequestBody
+                val courseData: Map<String, RequestBody> = mutableMapOf<String, RequestBody>().apply {
                     put("name", course.name.toRequestBody("text/plain".toMediaType()))
                     put("description", course.description.toRequestBody("text/plain".toMediaType()))
                     put("schedule", course.schedule.toRequestBody("text/plain".toMediaType()))
                     put("professor", course.professor.toRequestBody("text/plain".toMediaType()))
                 }
 
-                Log.i("ViewModelInfo", "Sending event with image: ${course.name}")
+                Log.i("ViewModelInfo", "Sending course with image: ${course.name}")
 
                 // 3. Llamar al backend
-                val response = RetrofitInstance.courseApi.addCourse(filePart, eventData)
+                val response = RetrofitInstance.courseApi.addCourse(filePart, courseData)
 
                 // 4. Agregarlo a la lista observable
                 _courses.value += response
@@ -145,50 +140,55 @@ class CourseViewModel : ViewModel() {
         _errorMessage.value = null
         _successMessage.value = null
     }
-    fun updateCourse(courseId: Int, course: Course, imageFile: File?) {
+
+    fun updateCourse(course: Course, imageFile: File) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
-                val filePart = imageFile?.let { file ->
-                    val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
-                    MultipartBody.Part.createFormData(
-                        name = "file",
-                        filename = file.name,
-                        body = requestFile
-                    )
+                // Validar imagen
+                if (!imageFile.exists()) {
+                    Log.e("ViewModelError", "Image file does not exist.")
+                    return@launch
                 }
 
-                val courseData = mapOf(
-                    "name" to course.name.toRequestBody("text/plain".toMediaType()),
-                    "description" to course.description.toRequestBody("text/plain".toMediaType()),
-                    "professor" to course.professor.toRequestBody("text/plain".toMediaType()),
-                    "schedule" to course.schedule.toRequestBody("text/plain".toMediaType())
+                // 1. Preparar la imagen
+                val requestFile = imageFile.asRequestBody("image/*".toMediaTypeOrNull())
+                val filePart = MultipartBody.Part.createFormData(
+                    name = "file",
+                    filename = imageFile.name,
+                    body = requestFile
                 )
 
-                val response = if (filePart != null) {
-                    RetrofitInstance.courseApi.updateCourseWithImage(courseId, filePart, courseData)
-                } else {
-                    RetrofitInstance.courseApi.updateCourse(courseId, courseData)
+                // 2. Preparar los datos del curso
+                val courseData: Map<String, RequestBody> = mutableMapOf<String, RequestBody>().apply {
+                    put("name", course.name.toRequestBody("text/plain".toMediaType()))
+                    put("description", course.description.toRequestBody("text/plain".toMediaType()))
+                    put("schedule", course.schedule.toRequestBody("text/plain".toMediaType()))
+                    put("professor", course.professor.toRequestBody("text/plain".toMediaType()))
                 }
 
+                // 3. Llamada al backend
+                val response = RetrofitInstance.courseApi.updateCourseWithImage(
+                    id = course.id,
+                    file = filePart,
+                    courseData = courseData
+                )
+
+                // 4. Actualizar lista observable
                 _courses.value = _courses.value.map {
-                    if (it.id == courseId) response else it
+                    if (it.id == response.id) response else it
                 }
-                _successMessage.value = "Curso actualizado exitosamente"
-                Log.i("ViewModelInfo", "Course updated: $response")
+
+                Log.i("ViewModelInfo", "Course updated successfully: $response")
+
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                _errorMessage.value = "Error al actualizar curso: ${e.message()}"
                 Log.e("ViewModelError", "HTTP Error: ${e.message()}, Body: $errorBody")
             } catch (e: Exception) {
-                _errorMessage.value = "Error al actualizar curso: ${e.message}"
                 Log.e("ViewModelError", "Error: ${e.message}", e)
-            } finally {
-                _isLoading.value = false
             }
         }
     }
 
 
 
-    }
+}
