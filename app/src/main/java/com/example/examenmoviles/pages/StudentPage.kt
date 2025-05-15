@@ -1,6 +1,13 @@
 package com.example.examenmoviles.pages
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
@@ -18,15 +25,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.examenmoviles.models.Student
 import com.example.examenmoviles.viewmodel.StudentViewModel
+import com.google.firebase.messaging.FirebaseMessaging
 
 class StudentPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        createNotificationChannel(this)
+        subscribeToTopic()
         val courseId = intent.getIntExtra("COURSE_ID", -1)
         setContent {
             StudentPageContent(courseId = courseId, onBack = { finish() })
@@ -41,10 +52,22 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var currentStudent by remember { mutableStateOf<Student?>(null) }
+    val context = LocalContext.current
 
     // Cargar estudiantes al iniciar
     LaunchedEffect(courseId) {
-        viewModel.fetchStudentsByCourseId(courseId)
+        if (isInternetAvailable(context)) {
+            viewModel.fetchStudentsByCourseId(courseId)
+        } else {
+
+            viewModel.students.collect { localStudents ->
+                if (localStudents.isEmpty()) {
+                    Log.d("StudentPage", "No internet and no local data available.")
+                } else {
+                    viewModel.updateStudents(localStudents)
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -83,6 +106,7 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                 )
             }
 
+
             viewModel.successMessage.collectAsState().value?.let { message ->
                 AlertDialog(
                     onDismissRequest = { viewModel.clearMessages() },
@@ -90,6 +114,19 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                     text = { Text(message) },
                     confirmButton = {
                         TextButton(onClick = { viewModel.clearMessages() }) {
+                            Text("OK")
+                        }
+                    }
+                )
+            }
+
+            if (viewModel.loadingFromLocal.collectAsState().value) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text("Cargando datos") },
+                    text = { Text("Cargando estudiantes desde LocalStorage...") },
+                    confirmButton = {
+                        TextButton(onClick = {}) {
                             Text("OK")
                         }
                     }
@@ -308,4 +345,45 @@ fun StudentFormDialog(
             }
         }
     )
+}
+
+fun createNotificationChannel(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channelId = "student_reminder_channel"
+        val channelName = "Student Reminders"
+        val importance = NotificationManager.IMPORTANCE_DEFAULT
+
+        val channel = NotificationChannel(channelId, channelName, importance).apply {
+            description = "Notifies users about upcoming students"
+        }
+
+        val notificationManager =
+            context.getSystemService(NotificationManager::class.java)
+        notificationManager?.createNotificationChannel(channel)
+    }
+}
+
+fun subscribeToTopic() {
+    FirebaseMessaging.getInstance().subscribeToTopic("student_notifications")
+        .addOnCompleteListener { task ->
+            var msg = "Subscription successful"
+            if (!task.isSuccessful) {
+                msg = "Subscription failed"
+            }
+            Log.d("FCM", msg)
+        }
+}
+
+// Función para verificar la conexión a Internet
+fun isInternetAvailable(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val networkCapabilities = connectivityManager.activeNetwork?.let {
+            connectivityManager.getNetworkCapabilities(it)
+        }
+        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    } else {
+        val activeNetworkInfo = connectivityManager.activeNetworkInfo
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected
+    }
 }
