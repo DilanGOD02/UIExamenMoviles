@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.examenmoviles.models.Course
+import com.example.examenmoviles.models.StudentAppDatabase
 import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +22,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import kotlin.collections.plus
 
-class CourseViewModel : ViewModel() {
+
+class CourseViewModel (app: Application) : AndroidViewModel(app) {
+
+    private val db = StudentAppDatabase.getInstance(app.applicationContext)
+
     private val apiService = RetrofitInstance.courseApi
+
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses
 
@@ -41,6 +47,7 @@ class CourseViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val response = apiService.getCourses()
+                db.courseDao().getAllCourses()
                 Log.d("CourseViewModel", "Fetched ${response.size} courses") // <- Agregado
                 _courses.value = response
             } catch (e: Exception) {
