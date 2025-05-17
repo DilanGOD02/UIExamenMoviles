@@ -22,11 +22,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import kotlin.collections.plus
 
+
 class CourseViewModel (app: Application) : AndroidViewModel(app) {
-<<<<<<< Updated upstream
-=======
+
     private val db = StudentAppDatabase.getInstance(app.applicationContext)
->>>>>>> Stashed changes
+
     private val apiService = RetrofitInstance.courseApi
 
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
