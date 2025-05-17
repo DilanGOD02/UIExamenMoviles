@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,6 +31,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.examenmoviles.models.Student
 import com.example.examenmoviles.viewmodel.StudentViewModel
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class StudentPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,35 +54,58 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
     var showEditDialog by remember { mutableStateOf(false) }
     var currentStudent by remember { mutableStateOf<Student?>(null) }
     val context = LocalContext.current
+    val isOnline = remember { mutableStateOf(isInternetAvailable(context)) }
 
     // Cargar estudiantes al iniciar
     LaunchedEffect(courseId) {
-        if (isInternetAvailable(context)) {
-            viewModel.fetchStudentsByCourseId(courseId)
-        } else {
+        // Cargar primero de la base de datos local
+        viewModel.loadStudentsFromCache(courseId)
 
-            viewModel.students.collect { localStudents ->
-                if (localStudents.isEmpty()) {
-                    Log.d("StudentPage", "No internet and no local data available.")
-                } else {
-                    viewModel.updateStudents(localStudents)
-                }
+        // Si hay conexión, intentar cargar desde la API
+        if (isOnline.value) {
+            viewModel.fetchStudentsByCourseId(courseId)
+        }
+    }
+
+    // Observar cambios en la conexión
+    DisposableEffect(Unit) {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                super.onAvailable(network)
+                isOnline.value = true
+                // Cuando la conexión vuelve, actualizar los datos
+                viewModel.fetchStudentsByCourseId(courseId)
             }
+
+            override fun onLost(network: android.net.Network) {
+                super.onLost(network)
+                isOnline.value = false
+                viewModel.showOfflineAlert.value = true
+            }
+        }
+
+        connectivityManager.registerDefaultNetworkCallback(callback)
+
+        onDispose {
+            connectivityManager.unregisterNetworkCallback(callback)
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("List Students Available") },
+                title = { Text("Lista de Estudiantes") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Student")
+                    if (isOnline.value) {
+                        IconButton(onClick = { showAddDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "Agregar Estudiante")
+                        }
                     }
                 }
             )
@@ -92,6 +116,20 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Mostrar alerta de modo offline
+            if (viewModel.showOfflineAlert.value) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.showOfflineAlert.value = false },
+                    title = { Text("Modo Offline") },
+                    text = { Text("Estás viendo datos almacenados localmente. Algunas funciones pueden no estar disponibles.") },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.showOfflineAlert.value = false }) {
+                            Text("Entendido")
+                        }
+                    }
+                )
+            }
+
             // Mostrar mensajes de error/éxito
             viewModel.errorMessage.collectAsState().value?.let { message ->
                 AlertDialog(
@@ -106,11 +144,10 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                 )
             }
 
-
             viewModel.successMessage.collectAsState().value?.let { message ->
                 AlertDialog(
                     onDismissRequest = { viewModel.clearMessages() },
-                    title = { Text("Success") },
+                    title = { Text("Éxito") },
                     text = { Text(message) },
                     confirmButton = {
                         TextButton(onClick = { viewModel.clearMessages() }) {
@@ -120,13 +157,14 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                 )
             }
 
+            // Mostrar alerta de carga desde caché
             if (viewModel.loadingFromLocal.collectAsState().value) {
                 AlertDialog(
-                    onDismissRequest = {},
+                    onDismissRequest = { },
                     title = { Text("Cargando datos") },
-                    text = { Text("Cargando estudiantes desde LocalStorage...") },
+                    text = { Text("Estamos cargando los estudiantes desde el almacenamiento local...") },
                     confirmButton = {
-                        TextButton(onClick = {}) {
+                        TextButton(onClick = { }) {
                             Text("OK")
                         }
                     }
@@ -137,19 +175,28 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
             StudentList(
                 students = viewModel.students.collectAsState().value,
                 onEdit = { student ->
-                    currentStudent = student
-                    showEditDialog = true
+                    if (isOnline.value) {
+                        currentStudent = student
+                        showEditDialog = true
+                    } else {
+                        viewModel.errorMessage.value = "No puedes editar estudiantes en modo offline"
+                    }
                 },
                 onDelete = { studentId ->
-                    viewModel.deleteStudent(studentId)
+                    if (isOnline.value) {
+                        viewModel.deleteStudent(studentId)
+                    } else {
+                        viewModel.errorMessage.value = "No puedes eliminar estudiantes en modo offline"
+                    }
                 },
-                isLoading = viewModel.isLoading.collectAsState().value
+                isLoading = viewModel.isLoading.collectAsState().value,
+                isOnline = isOnline.value
             )
 
             // Diálogo para agregar estudiante
             if (showAddDialog) {
                 StudentFormDialog(
-                    title = "Add Student",
+                    title = "Agregar Estudiante",
                     courseId = courseId,
                     onDismiss = { showAddDialog = false },
                     onSave = { student ->
@@ -163,7 +210,7 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
             currentStudent?.let { student ->
                 if (showEditDialog) {
                     StudentFormDialog(
-                        title = "Edit Student",
+                        title = "Editar Estudiante",
                         student = student,
                         courseId = courseId,
                         onDismiss = { showEditDialog = false },
@@ -185,7 +232,8 @@ fun StudentList(
     students: List<Student>,
     onEdit: (Student) -> Unit,
     onDelete: (Int) -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    isOnline: Boolean
 ) {
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -196,13 +244,24 @@ fun StudentList(
             Text("No hay estudiantes inscritos en este curso")
         }
     } else {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(students) { student ->
-                StudentListItem(
-                    student = student,
-                    onEdit = { onEdit(student) },
-                    onDelete = { student.id?.let { onDelete(it) } }
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!isOnline) {
+                Text(
+                    text = "Modo Offline - Datos locales",
+                    color = Color.Red,
+                    modifier = Modifier.padding(8.dp)
                 )
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(students) { student ->
+                    StudentListItem(
+                        student = student,
+                        onEdit = { onEdit(student) },
+                        onDelete = { student.id?.let { onDelete(it) } },
+                        isOnline = isOnline
+                    )
+                }
             }
         }
     }
@@ -212,7 +271,8 @@ fun StudentList(
 fun StudentListItem(
     student: Student,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    isOnline: Boolean
 ) {
     Card(
         modifier = Modifier
@@ -238,18 +298,34 @@ fun StudentListItem(
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
+                    if (!isOnline) {
+                        Text(
+                            text = "Datos locales",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+                    }
                 }
                 Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    IconButton(
+                        onClick = onEdit,
+                        enabled = isOnline
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = if (isOnline) LocalContentColor.current else Color.Gray
+                        )
                     }
-                    IconButton(onClick = {
-                        student.id?.let {
-                            println("Student ID to delete: $it") // Imprimir ID en la consola
-                            onDelete()
-                        }
-                    }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    IconButton(
+                        onClick = onDelete,
+                        enabled = isOnline
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Eliminar",
+                            tint = if (isOnline) LocalContentColor.current else Color.Gray
+                        )
                     }
                 }
             }
@@ -282,7 +358,7 @@ fun StudentFormDialog(
             ) {
                 if (showEmptyFieldsError) {
                     Text(
-                        text = "Los campos están vacíos",
+                        text = "Todos los campos son obligatorios",
                         color = Color.Red,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -290,30 +366,21 @@ fun StudentFormDialog(
 
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        showEmptyFieldsError = false // Resetear el error al empezar a escribir
-                    },
-                    label = { Text("Name") },
+                    onValueChange = { name = it },
+                    label = { Text("Nombre") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = email,
-                    onValueChange = {
-                        email = it
-                        showEmptyFieldsError = false
-                    },
+                    onValueChange = { email = it },
                     label = { Text("Email") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = phone,
-                    onValueChange = {
-                        phone = it
-                        showEmptyFieldsError = false
-                    },
-                    label = { Text("Phone") },
+                    onValueChange = { phone = it },
+                    label = { Text("Teléfono") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -336,12 +403,12 @@ fun StudentFormDialog(
                     }
                 }
             ) {
-                Text("Save")
+                Text("Guardar")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancelar")
             }
         }
     )
@@ -350,15 +417,14 @@ fun StudentFormDialog(
 fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val channelId = "student_reminder_channel"
-        val channelName = "Student Reminders"
+        val channelName = "Notificaciones de Estudiantes"
         val importance = NotificationManager.IMPORTANCE_DEFAULT
 
         val channel = NotificationChannel(channelId, channelName, importance).apply {
-            description = "Notifies users about upcoming students"
+            description = "Notificaciones sobre estudiantes"
         }
 
-        val notificationManager =
-            context.getSystemService(NotificationManager::class.java)
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
         notificationManager?.createNotificationChannel(channel)
     }
 }
@@ -366,20 +432,14 @@ fun createNotificationChannel(context: Context) {
 fun subscribeToTopic() {
     FirebaseMessaging.getInstance().subscribeToTopic("student_notifications")
         .addOnCompleteListener { task ->
-            var msg = "Subscription successful"
-            if (!task.isSuccessful) {
-                msg = "Subscription failed"
-            }
+            val msg = if (task.isSuccessful) "Suscripción exitosa" else "Suscripción fallida"
             Log.d("FCM", msg)
         }
 }
 
-
 fun isInternetAvailable(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val networkCapabilities = connectivityManager.activeNetwork?.let {
-        connectivityManager.getNetworkCapabilities(it)
-    }
-    return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
-

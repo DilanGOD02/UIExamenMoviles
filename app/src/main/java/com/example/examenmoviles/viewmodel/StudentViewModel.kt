@@ -65,15 +65,28 @@ class StudentViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun loadStudentsFromCache() {
+    fun loadLocalStudents(courseId: Int) {
         viewModelScope.launch {
-            val local = withContext(Dispatchers.IO) {
-                db.studentDao().getAll()
+            _loadingFromLocal.value = true
+            try {
+                val localStudents = withContext(Dispatchers.IO) {
+                    db.studentDao().getStudentsByCourseId(courseId)
+                }
+                _students.value = localStudents
+
+                if (localStudents.isNotEmpty()) {
+                    Log.d("StudentVM", "Cargando desde Room (curso=$courseId, items=${localStudents.size})")
+                    _successMessage.value = "Datos cargados desde almacenamiento local"
+                } else {
+                    _errorMessage.value = "No hay datos locales para este curso"
+                }
+            } catch (e: Exception) {
+                Log.e("StudentVM", "Error cargando datos locales", e)
+                _errorMessage.value = "Error cargando datos locales: ${e.message}"
+            } finally {
+                _loadingFromLocal.value = false
+                showOfflineAlert.value = true
             }
-            _students.value = local
-            isLoadingFromLocal.value = true
-            showOfflineAlert.value = true
-            Log.d("StudentVM", "Cargando lista desde Room (items=${local.size})")
         }
     }
 
@@ -82,30 +95,31 @@ class StudentViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Intenta obtener los datos desde la API
+                // 1. Obtener de la API
                 val response = apiService.getStudentsByCourseId(courseId)
-                Log.d("StudentViewModel", "Fetched ${response.size} students for courseId $courseId")
+
+                // 2. Actualizar UI
                 _students.value = response
 
-                // Actualiza el caché con los datos obtenidos de la API
+                // 3. Actualizar caché local (solo estudiantes de este curso)
                 withContext(Dispatchers.IO) {
+                    // Primero eliminar solo los estudiantes de este curso
+
+                    // Luego insertar los nuevos
                     db.studentDao().insertAll(response)
                 }
-            } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error fetching students by courseId", e)
-                _errorMessage.value = "Error fetching students by courseId: ${e.message}"
 
-                // Si ocurre un error, carga los datos del caché local
-                val cachedStudents = withContext(Dispatchers.IO) {
-                    db.studentDao().getStudentsByCourseId(courseId)
-                }
-                _students.value = cachedStudents
-                Log.d("StudentViewModel", "Loaded ${cachedStudents.size} students from cache for courseId $courseId")
+            } catch (e: Exception) {
+                Log.e("StudentVM", "Error fetching from API", e)
+                // Fallback a datos locales
+                loadLocalStudents(courseId)
+                _errorMessage.value = "Sin conexión. Mostrando datos locales."
             } finally {
                 _isLoading.value = false
             }
         }
     }
+
 
 
     fun createStudent(student: Student) {
