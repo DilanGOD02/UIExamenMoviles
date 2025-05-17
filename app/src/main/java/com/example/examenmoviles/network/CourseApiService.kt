@@ -3,6 +3,7 @@ import com.example.examenmoviles.models.Course
 import com.example.examenmoviles.models.Student
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import retrofit2.Response
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
@@ -47,5 +48,6 @@ interface CourseApiService {
     ): Course
 
     @DELETE("api/courses/{id}")
-    suspend fun deleteCourse(@Path("id") id: Int)
+    suspend fun deleteCourse(@Path("id") id: Int): Response<Unit>
+
 }

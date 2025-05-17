@@ -183,21 +183,47 @@ fun CourseCard(
     course: Course,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onClick: () -> Unit // Nuevo parámetro para manejar el clic
+    onClick: () -> Unit
 ) {
     val context = LocalContext.current
     val fullImageUrl = Constants.IMAGES_BASE_URL + (course.imageUrl ?: "")
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Diálogo de confirmación para eliminar
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar curso") },
+            text = { Text("¿Estás seguro de que quieres eliminar este curso?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteClick()
+                    }
+                ) {
+                    Text("Sí, eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth()
             .clickable(onClick = onClick),
-
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    )  {
         Column {
-            // Imagen del curso
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -261,7 +287,7 @@ fun CourseCard(
                         Spacer(modifier = Modifier.width(8.dp))
 
                         IconButton(
-                            onClick = onDeleteClick,
+                            onClick = { showDeleteDialog = true },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(

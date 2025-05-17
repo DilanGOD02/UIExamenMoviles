@@ -42,39 +42,55 @@ fun StudentDetailsPage(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .fillMaxSize()
-        ) {
-            items(students) { student ->
-                var expanded by remember { mutableStateOf(false) }
+        if (students.isEmpty()) {
+          
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No hay estudiantes registrados.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxSize()
+            ) {
+                items(students) { student ->
+                    var expanded by remember { mutableStateOf(false) }
 
-                ElevatedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clickable { expanded = !expanded },
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .clickable { expanded = !expanded },
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
                     ) {
-                        Text(
-                            text = student.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = student.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
 
-                        if (expanded) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "📧 Email: ${student.email}")
-                            Text(text = "📞 Teléfono: ${student.phone}")
-                            Text(text = "📚 Curso: ${student.courseName}")
-                            Text(text = "📝 Descripción: ${student.courseDescription}")
-                            Text(text = "🕒 Horario: ${student.courseSchedule}")
-                            Text(text = "👨‍🏫 Profesor: ${student.courseProfessor}")
+                            if (expanded) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "📧 Email: ${student.email}")
+                                Text(text = "📞 Teléfono: ${student.phone}")
+                                Text(text = "📚 Curso: ${student.courseName}")
+                                Text(text = "📝 Descripción: ${student.courseDescription}")
+                                Text(text = "🕒 Horario: ${student.courseSchedule}")
+                                Text(text = "👨‍🏫 Profesor: ${student.courseProfessor}")
+                            }
                         }
                     }
                 }
