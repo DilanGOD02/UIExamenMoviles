@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import com.example.examenmoviles.interfaces.StudentDao
 import kotlin.jvm.java
 
-@Database(entities = [Student::class], version = 2,exportSchema = false)
+@Database(entities = [Student::class], version = 1)
 abstract class StudentAppDatabase : RoomDatabase() {
     abstract fun studentDao(): StudentDao
 
