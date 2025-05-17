@@ -13,13 +13,27 @@ object RetrofitInstance {
     private const val BASE_URL = "http://10.0.2.2:5275/"
     private const val CACHE_SIZE = 10 * 1024 * 1024 // 10 MiB
 
+    // Variable para almacenar el contexto de la aplicación
+    private var appContext: Context? = null
+
+    // Inicializar el contexto de la aplicación
+    fun init(context: Context) {
+        if (appContext == null) {
+            appContext = context.applicationContext
+        }
+    }
+
     // Crear la caché
-    private fun createCache(context: Context): Cache {
+    private fun createCache(): Cache {
+        val context = appContext
+            ?: throw IllegalStateException("RetrofitInstance no ha sido inicializado. Llama a init(context) primero.")
         return Cache(context.cacheDir, CACHE_SIZE.toLong())
     }
 
     // Verificar conectividad de red
-    private fun hasNetwork(context: Context): Boolean {
+    private fun hasNetwork(): Boolean {
+        val context = appContext
+            ?: throw IllegalStateException("RetrofitInstance no ha sido inicializado. Llama a init(context) primero.")
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
@@ -27,18 +41,19 @@ object RetrofitInstance {
     }
 
     // Crear OkHttpClient
-    private fun createOkHttpClient(context: Context): OkHttpClient {
+    private fun createOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
-            .cache(createCache(context))
+            .cache(createCache())
             .addInterceptor { chain ->
                 var request = chain.request()
-                request = if (hasNetwork(context))
+                request = if (hasNetwork()) {
                     request.newBuilder().header("Cache-Control", "public, max-age=5").build()
-                else
+                } else {
                     request.newBuilder().header(
                         "Cache-Control",
                         "public, only-if-cached, max-stale=${60 * 60 * 24 * 7}"
                     ).build()
+                }
                 chain.proceed(request)
             }
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -47,19 +62,12 @@ object RetrofitInstance {
             .build()
     }
 
-    // Contexto global para inicialización
-    private lateinit var appContext: Context
-
-    // Método para inicializar el contexto
-    fun init(context: Context) {
-        appContext = context.applicationContext
-    }
-
     // Inicializar OkHttpClient de forma perezosa
     private val okHttpClient: OkHttpClient by lazy {
-        createOkHttpClient(appContext)
+        createOkHttpClient()
     }
 
+    // Inicializar Retrofit de forma perezosa
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
@@ -68,16 +76,12 @@ object RetrofitInstance {
             .build()
     }
 
-    // Propiedad de CourseApiService
+    // Servicios de API
     val courseApi: CourseApiService by lazy {
         retrofit.create(CourseApiService::class.java)
     }
 
-    // Propiedad de StudentApiService
     val studentApi: StudentApiService by lazy {
         retrofit.create(StudentApiService::class.java)
     }
-
-
 }
-

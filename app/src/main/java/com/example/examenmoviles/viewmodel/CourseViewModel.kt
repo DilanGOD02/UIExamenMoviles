@@ -21,7 +21,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import kotlin.collections.plus
 
-class CourseViewModel (app: Application) : AndroidViewModel(app) {
+class CourseViewModel : ViewModel() {
     private val apiService = RetrofitInstance.courseApi
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses

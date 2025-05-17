@@ -374,7 +374,7 @@ fun subscribeToTopic() {
         }
 }
 
-// Función para verificar la conexión a Internet
+
 fun isInternetAvailable(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     val networkCapabilities = connectivityManager.activeNetwork?.let {
