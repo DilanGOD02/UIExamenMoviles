@@ -85,18 +85,24 @@ fun CoursePage(
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Volver")
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            showForm = true
+                            currentCourseToEdit = null
+                        }
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = "Add course",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                showForm = true
-                currentCourseToEdit = null
-            }) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add course")
-            }
         }
     ) { paddingValues ->
         Box(
@@ -110,19 +116,14 @@ fun CoursePage(
                     courseToEdit = currentCourseToEdit,
                     onSubmit = { course, imageUri ->
                         if (currentCourseToEdit != null) {
-                            // Update existing course
                             if (imageUri != null) {
                                 val imageFile = uriToFile(imageUri, context)
                                 courseViewModel.updateCourse(course, imageFile)
                             } else {
-                                // If no new image is selected, we need to handle this case
-                                // You might want to create a separate update method without image
-                                // or pass the existing image URL to the ViewModel
                                 Toast.makeText(context, "Se requiere una imagen para actualizar", Toast.LENGTH_SHORT).show()
                                 return@AddCourseForm
                             }
                         } else {
-                            // Add new course
                             if (imageUri != null) {
                                 val imageFile = uriToFile(imageUri, context)
                                 courseViewModel.addCourse(course, imageFile)
@@ -381,8 +382,10 @@ fun AddCourseForm(
                     onClick = { imagePicker.launch("image/*") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Seleccionar imagen${if (courseToEdit == null) "*" else ""}")
                 }

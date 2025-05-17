@@ -1,5 +1,6 @@
 package com.example.examenmoviles.network
 import com.example.examenmoviles.models.Student
+import com.example.examenmoviles.models.StudentDetails
 
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -12,7 +13,7 @@ import retrofit2.http.Path
 interface StudentApiService {
 
     @GET("api/students")
-    suspend fun getAllStudents(): List<Student>
+    suspend fun getAllStudents(): List<StudentDetails>
 
     @GET("api/students/{id}")
     suspend fun getStudentById(@Path("id") id: Int): Student

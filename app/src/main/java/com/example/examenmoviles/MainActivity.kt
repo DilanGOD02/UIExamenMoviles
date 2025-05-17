@@ -22,16 +22,19 @@ import com.example.examenmoviles.ui.theme.ExamenMovilesTheme
 import com.example.examenmoviles.viewmodel.CourseViewModel
 import androidx.activity.viewModels
 import com.example.examenmoviles.models.StudentAppDatabase
+import com.example.examenmoviles.pages.StudentDetailsPage
+import com.example.examenmoviles.viewmodel.StudentDetailsViewModel
 
 
 class MainActivity : ComponentActivity() {
-    // Obtener el ViewModel usando la factory por defecto de AndroidViewModel
+
     private val viewModel: CourseViewModel by viewModels()
+    private val studentDetailsViewModel: StudentDetailsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializar Room Database
+
         StudentAppDatabase.getInstance(this)
 
         enableEdgeToEdge()
@@ -39,22 +42,22 @@ class MainActivity : ComponentActivity() {
             ExamenMovilesTheme {
                 val context = LocalContext.current
                 var showNoInternetAlert by remember { mutableStateOf(false) }
-                var currentScreen by remember { mutableStateOf("main") } // Control de navegación
+                var currentScreen by remember { mutableStateOf("main") }
 
-                // Verificar conexión al iniciar
+
                 LaunchedEffect(Unit) {
                     val isOnline = checkInternetConnection(context)
                     showNoInternetAlert = !isOnline
                     if (currentScreen == "main") {
-                        viewModel.fetchEvents() // Cargar cursos al inicio
+                        viewModel.fetchEvents()
                     }
                 }
 
-                // Navegación principal
+
                 when (currentScreen) {
                     "main" -> MainScreen(
                         onNavigateToStudents = {
-                            startActivity(Intent(this@MainActivity, StudentPage::class.java))
+                            currentScreen = "students"
                         },
                         onNavigateToCourses = {
                             currentScreen = "courses"
@@ -64,9 +67,11 @@ class MainActivity : ComponentActivity() {
                         onBack = { currentScreen = "main" },
                         courseViewModel = viewModel
                     )
+                    "students" -> StudentDetailsPage(
+                        viewModel = studentDetailsViewModel,
+                        onBack = { currentScreen = "main" }
+                    )
                 }
-
-                // Alerta de conexión
                 if (showNoInternetAlert) {
                     AlertDialog(
                         onDismissRequest = { showNoInternetAlert = false },
@@ -75,7 +80,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             Button(onClick = {
                                 showNoInternetAlert = false
-                                // Intenta reconectar
+
                                 val isOnline = checkInternetConnection(context)
                                 if (isOnline) {
                                     viewModel.fetchEvents()
@@ -87,7 +92,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // Mostrar mensajes de error/éxito del ViewModel
+
                 viewModel.errorMessage.collectAsState().value?.let { message ->
                     AlertDialog(
                         onDismissRequest = { viewModel.clearMessages() },

@@ -124,7 +124,7 @@ class CourseViewModel (app: Application) : AndroidViewModel(app) {
     }
 
 
-    fun deleteCourse(courseId: Int) {
+   fun deleteCourse(courseId: Int) {
         viewModelScope.launch {
             try {
                 RetrofitInstance.courseApi.deleteCourse(courseId)

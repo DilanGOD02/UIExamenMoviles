@@ -49,22 +49,6 @@ class StudentViewModel(app: Application) : AndroidViewModel(app) {
         _students.value = localStudents
     }
 
-    fun fetchAllStudents() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = apiService.getAllStudents()
-                Log.d("StudentViewModel", "Fetched ${response.size} students")
-                _students.value = response
-            } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error fetching students", e)
-                _errorMessage.value = "Error fetching students: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
     fun loadLocalStudents(courseId: Int) {
         viewModelScope.launch {
             _loadingFromLocal.value = true
