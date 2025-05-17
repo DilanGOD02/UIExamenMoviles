@@ -1,19 +1,15 @@
 package com.example.examenmoviles.models
 
-data class Course(
-    val id: Int? = null,
-    val name: String,
-    val description: String,
-    val imageUrl: String?,
-    val schedule: String,
-    val professor: String
-)
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-data class CourseDto(
-    val id: Int? = null,
-    val name: String,
-    val description: String,
-    val imageUrl: String?,
-    val schedule: String,
-    val professor: String
+@Entity(tableName = "Courses")
+data class Course(
+    @PrimaryKey val id: Int? = null,
+    @ColumnInfo val name: String,
+    @ColumnInfo val description: String,
+    @ColumnInfo val imageUrl: String?,
+    @ColumnInfo val schedule: String,
+    @ColumnInfo val professor: String
 )
