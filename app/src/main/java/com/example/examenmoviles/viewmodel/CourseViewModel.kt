@@ -1,16 +1,17 @@
 package com.example.examenmoviles.viewmodel
 
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.examenmoviles.models.Course
-import com.example.examenmoviles.network.RetrofitClient
+import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 import java.io.File
-import com.example.examenmoviles.network.RetrofitInstance
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -20,8 +21,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import kotlin.collections.plus
 
-class CourseViewModel : ViewModel() {
-    private val apiService = RetrofitClient.CourseapiService
+class CourseViewModel (app: Application) : AndroidViewModel(app) {
+    private val apiService = RetrofitInstance.courseApi
     private val _courses = MutableStateFlow<List<Course>>(emptyList())
     val course: StateFlow<List<Course>> = _courses
 
@@ -149,7 +150,7 @@ class CourseViewModel : ViewModel() {
                     Log.e("ViewModelError", "Image file does not exist.")
                     return@launch
                 }
-
+                val courseId = course.id ?: throw IllegalArgumentException("Course ID cannot be null for update.")
                 // 1. Preparar la imagen
                 val requestFile = imageFile.asRequestBody("image/*".toMediaTypeOrNull())
                 val filePart = MultipartBody.Part.createFormData(

@@ -22,6 +22,7 @@ roomCommonJvm = "2.7.1"
 roomCompiler = "2.7.1"
 okhttp = "4.9.1"
 
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 
