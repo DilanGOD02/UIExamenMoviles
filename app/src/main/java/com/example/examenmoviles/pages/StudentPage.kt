@@ -4,7 +4,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -31,8 +33,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.examenmoviles.models.Student
 import com.example.examenmoviles.viewmodel.StudentViewModel
 import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class StudentPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,14 +54,11 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
     var showEditDialog by remember { mutableStateOf(false) }
     var currentStudent by remember { mutableStateOf<Student?>(null) }
     val context = LocalContext.current
-    var isOnline by remember { mutableStateOf(isInternetAvailable(context)) } // Cambiado a var
+    var isOnline by remember { mutableStateOf(isInternetAvailable(context)) }
 
     // Cargar estudiantes al iniciar
     LaunchedEffect(courseId) {
-        // Cargar primero de la base de datos local
         viewModel.loadLocalStudents(courseId)
-
-        // Si hay conexión, intentar cargar desde la API
         if (isOnline) {
             viewModel.fetchStudentsByCourseId(courseId)
         }
@@ -70,21 +67,28 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
     // Observar cambios en la conexión
     DisposableEffect(Unit) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        isOnline = isInternetAvailable(context)
+
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: android.net.Network) {
+            override fun onAvailable(network: Network) {
                 super.onAvailable(network)
-                isOnline = true // Ahora podemos modificar directamente
+                isOnline = true
                 viewModel.fetchStudentsByCourseId(courseId)
             }
 
-            override fun onLost(network: android.net.Network) {
+            override fun onLost(network: Network) {
                 super.onLost(network)
-                isOnline = false // Ahora podemos modificar directamente
-                viewModel.showOfflineAlert.value = true
+                isOnline = false
             }
         }
 
-        connectivityManager.registerDefaultNetworkCallback(callback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+        } else {
+            @Suppress("DEPRECATION")
+            val request = NetworkRequest.Builder().build()
+            connectivityManager.registerNetworkCallback(request, callback)
+        }
 
         onDispose {
             connectivityManager.unregisterNetworkCallback(callback)
@@ -115,61 +119,6 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Mostrar alerta de modo offline
-            if (viewModel.showOfflineAlert.value) {
-                AlertDialog(
-                    onDismissRequest = { viewModel.showOfflineAlert.value = false },
-                    title = { Text("Modo Offline") },
-                    text = { Text("Estás viendo datos almacenados localmente. Algunas funciones pueden no estar disponibles.") },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.showOfflineAlert.value = false }) {
-                            Text("Entendido")
-                        }
-                    }
-                )
-            }
-
-            // Mostrar mensajes de error/éxito
-            viewModel.errorMessage.collectAsState().value?.let { message ->
-                AlertDialog(
-                    onDismissRequest = { viewModel.clearMessages() },
-                    title = { Text("Error") },
-                    text = { Text(message) },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.clearMessages() }) {
-                            Text("OK")
-                        }
-                    }
-                )
-            }
-
-            viewModel.successMessage.collectAsState().value?.let { message ->
-                AlertDialog(
-                    onDismissRequest = { viewModel.clearMessages() },
-                    title = { Text("Éxito") },
-                    text = { Text(message) },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.clearMessages() }) {
-                            Text("OK")
-                        }
-                    }
-                )
-            }
-
-            // Mostrar alerta de carga desde caché
-            if (viewModel.loadingFromLocal.collectAsState().value) {
-                AlertDialog(
-                    onDismissRequest = { },
-                    title = { Text("Cargando datos") },
-                    text = { Text("Estamos cargando los estudiantes desde el almacenamiento local...") },
-                    confirmButton = {
-                        TextButton(onClick = { }) {
-                            Text("OK")
-                        }
-                    }
-                )
-            }
-
             // Lista de estudiantes
             StudentList(
                 students = viewModel.students.collectAsState().value,
@@ -177,19 +126,14 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                     if (isOnline) {
                         currentStudent = student
                         showEditDialog = true
-                    } else {
-                        viewModel.setErrorMessage("No puedes editar estudiantes en modo offline")
                     }
                 },
                 onDelete = { studentId ->
                     if (isOnline) {
                         viewModel.deleteStudent(studentId)
-                    } else {
-                        viewModel.setErrorMessage("No puedes eliminar estudiantes en modo offline")
                     }
                 },
-                isLoading = viewModel.isLoading.collectAsState().value,
-                isOnline = isOnline
+                isLoading = viewModel.isLoading.collectAsState().value
             )
 
             // Diálogo para agregar estudiante
@@ -231,8 +175,7 @@ fun StudentList(
     students: List<Student>,
     onEdit: (Student) -> Unit,
     onDelete: (Int) -> Unit,
-    isLoading: Boolean,
-    isOnline: Boolean
+    isLoading: Boolean
 ) {
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -243,24 +186,13 @@ fun StudentList(
             Text("No hay estudiantes inscritos en este curso")
         }
     } else {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (!isOnline) {
-                Text(
-                    text = "Modo Offline - Datos locales",
-                    color = Color.Red,
-                    modifier = Modifier.padding(8.dp)
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(students) { student ->
+                StudentListItem(
+                    student = student,
+                    onEdit = { onEdit(student) },
+                    onDelete = { student.id?.let { onDelete(it) } }
                 )
-            }
-
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(students) { student ->
-                    StudentListItem(
-                        student = student,
-                        onEdit = { onEdit(student) },
-                        onDelete = { student.id?.let { onDelete(it) } },
-                        isOnline = isOnline
-                    )
-                }
             }
         }
     }
@@ -270,8 +202,7 @@ fun StudentList(
 fun StudentListItem(
     student: Student,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    isOnline: Boolean
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -297,34 +228,13 @@ fun StudentListItem(
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
-                    if (!isOnline) {
-                        Text(
-                            text = "Datos locales",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
-                        )
-                    }
                 }
                 Row {
-                    IconButton(
-                        onClick = onEdit,
-                        enabled = isOnline
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Editar",
-                            tint = if (isOnline) LocalContentColor.current else Color.Gray
-                        )
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
-                    IconButton(
-                        onClick = onDelete,
-                        enabled = isOnline
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Eliminar",
-                            tint = if (isOnline) LocalContentColor.current else Color.Gray
-                        )
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                     }
                 }
             }
@@ -438,7 +348,17 @@ fun subscribeToTopic() {
 
 fun isInternetAvailable(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = connectivityManager.activeNetwork ?: return false
-    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    } else {
+        @Suppress("DEPRECATION")
+        val networkInfo = connectivityManager.activeNetworkInfo
+        networkInfo?.isConnected == true
+    }
 }

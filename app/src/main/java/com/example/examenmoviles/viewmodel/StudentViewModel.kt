@@ -190,13 +190,13 @@ class StudentViewModel(app: Application) : AndroidViewModel(app) {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    fun setErrorMessage(message: String?) {
-        _errorMessage.value = message
+    // En StudentViewModel
+    fun setOfflineAlert(show: Boolean) {
+        showOfflineAlert.value = show
     }
 
-    // Y también para el mensaje de éxito
-    fun setSuccessMessage(message: String?) {
-        _successMessage.value = message
+    fun setErrorMessage(message: String?) {
+        _errorMessage.value = message
     }
 
 }
