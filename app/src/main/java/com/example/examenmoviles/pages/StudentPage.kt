@@ -54,15 +54,15 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
     var showEditDialog by remember { mutableStateOf(false) }
     var currentStudent by remember { mutableStateOf<Student?>(null) }
     val context = LocalContext.current
-    val isOnline = remember { mutableStateOf(isInternetAvailable(context)) }
+    var isOnline by remember { mutableStateOf(isInternetAvailable(context)) } // Cambiado a var
 
     // Cargar estudiantes al iniciar
     LaunchedEffect(courseId) {
         // Cargar primero de la base de datos local
-        viewModel.loadStudentsFromCache(courseId)
+        viewModel.loadLocalStudents(courseId)
 
         // Si hay conexión, intentar cargar desde la API
-        if (isOnline.value) {
+        if (isOnline) {
             viewModel.fetchStudentsByCourseId(courseId)
         }
     }
@@ -73,14 +73,13 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: android.net.Network) {
                 super.onAvailable(network)
-                isOnline.value = true
-                // Cuando la conexión vuelve, actualizar los datos
+                isOnline = true // Ahora podemos modificar directamente
                 viewModel.fetchStudentsByCourseId(courseId)
             }
 
             override fun onLost(network: android.net.Network) {
                 super.onLost(network)
-                isOnline.value = false
+                isOnline = false // Ahora podemos modificar directamente
                 viewModel.showOfflineAlert.value = true
             }
         }
@@ -102,7 +101,7 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    if (isOnline.value) {
+                    if (isOnline) {
                         IconButton(onClick = { showAddDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = "Agregar Estudiante")
                         }
@@ -175,22 +174,22 @@ fun StudentPageContent(courseId: Int, onBack: () -> Unit) {
             StudentList(
                 students = viewModel.students.collectAsState().value,
                 onEdit = { student ->
-                    if (isOnline.value) {
+                    if (isOnline) {
                         currentStudent = student
                         showEditDialog = true
                     } else {
-                        viewModel.errorMessage.value = "No puedes editar estudiantes en modo offline"
+                        viewModel.setErrorMessage("No puedes editar estudiantes en modo offline")
                     }
                 },
                 onDelete = { studentId ->
-                    if (isOnline.value) {
+                    if (isOnline) {
                         viewModel.deleteStudent(studentId)
                     } else {
-                        viewModel.errorMessage.value = "No puedes eliminar estudiantes en modo offline"
+                        viewModel.setErrorMessage("No puedes eliminar estudiantes en modo offline")
                     }
                 },
                 isLoading = viewModel.isLoading.collectAsState().value,
-                isOnline = isOnline.value
+                isOnline = isOnline
             )
 
             // Diálogo para agregar estudiante
